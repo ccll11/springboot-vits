@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.dao.MessageDao">
+<!--    <select id="FindAll" resultType="vits">-->
+<!--        select * from vits-->
+<!--    </select>-->
+    <select id="FindALL" resultType="com.example.demo.entity.Message">
+        select * from message where user_id=#{user_id}
+    </select>
+</mapper>

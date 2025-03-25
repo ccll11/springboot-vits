@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>主页</title>
+    <link rel="stylesheet" th:href="@{/styles.css}">
+</head>
+<body>
+<div class="container">
+    <h1>主页</h1>
+    <p th:text="${message}"></p>
+    <a th:href="@{/user/login}">返回登录</a>
+</div>
+</body>
+</html>

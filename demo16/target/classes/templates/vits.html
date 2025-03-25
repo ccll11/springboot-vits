@@ -1,0 +1,235 @@
+
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live2D 显示</title>
+    <!-- 外部资源直接使用完整 URL -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.2/dist/browser/pixi.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/index.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            width: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 输入区域 */
+        .send_chat {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 600px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 输入框样式 */
+        #textInput {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            resize: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: border-color 0.3s ease;
+        }
+
+        #textInput:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
+        /* 按钮样式 */
+        button {
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:active {
+            background-color: #004080;
+        }
+
+        /* 错误提示 */
+        .error {
+            color: red;
+            text-align: center;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div class="send_chat">
+    <textarea id="textInput" placeholder="给ChatGPT发送消息..." rows="1"></textarea>
+    <button onclick="sendText()">发送</button>
+    <audio id="audioPlayer" controls autoplay style="display: none;"></audio>
+</div>
+
+<script th:inline="javascript">
+    // 使用 Thymeleaf 动态加载模型路径
+    const cubism2Model = /*[[@{/models_2/草神.model3.json}]]*/ "default_model_path";
+
+    // 初始化 PIXI 应用
+    const app = new PIXI.Application({
+        view: document.getElementById("canvas"),
+        autoStart: true,
+        resizeTo: window,
+        backgroundColor: 0x333333
+    });
+
+    let model; // 用于存储 Live2D 模型实例
+    let audioContext; // 用于存储 Web Audio API 上下文
+    let analyser; // 用于存储音频分析器
+    let source; // 用于存储音频源
+
+    // 发送文本到后端
+    async function sendText() {
+        const text = document.getElementById('textInput').value.trim();
+        if (!text) {
+            alert('请输入内容!');
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://localhost:8080/api/train`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(text)
+            });
+
+            if (!response.ok) {
+                throw new Error(`请求失败: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                const audioPlayer = document.getElementById('audioPlayer');
+                audioPlayer.src = `data:audio/wav;base64,${result.audio}`;
+                audioPlayer.play();
+
+                // 初始化音频分析
+                initAudioAnalysis(audioPlayer);
+            } else {
+                throw new Error(result.message || '未知错误');
+            }
+        } catch (error) {
+            console.error('错误:', error);
+            alert('发送失败: ' + error.message);
+        } finally {
+            document.getElementById('textInput').value = ''; // 清空输入框
+        }
+    }
+
+    // 初始化音频分析
+    function initAudioAnalysis(audioPlayer) {
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            source = audioContext.createMediaElementSource(audioPlayer);
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+        }
+
+        // 开始分析音频数据
+        analyzeAudio();
+    }
+
+    // 分析音频数据并驱动 Live2D 模型
+    function analyzeAudio() {
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(dataArray);
+
+        // 计算平均振幅
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+            sum += dataArray[i];
+        }
+        const averageAmplitude = sum / dataArray.length;
+
+        // 根据振幅调整 Live2D 模型的嘴部参数
+        if (model && model.internalModel) {
+            const mouthOpenValue = Math.min(averageAmplitude / 128, 1); // 将振幅映射到 0-1 范围
+            model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', mouthOpenValue);
+        }
+
+        // 继续分析
+        requestAnimationFrame(analyzeAudio);
+    }
+
+    // 加载 Live2D 模型
+    (async function main() {
+        try {
+            model = await PIXI.live2d.Live2DModel.from(cubism2Model);
+            app.stage.addChild(model);
+
+            // 动态锁定头部旋转参数
+            app.ticker.add(() => {
+                model.internalModel.coreModel.setParameterValueById('ParamAngleX', 0); // 锁定水平旋转
+                model.internalModel.coreModel.setParameterValueById('ParamAngleY', 0); // 锁定垂直旋转
+            });
+
+            // 调整模型大小和位置
+            const resizeModel = () => {
+                const scaleX = (innerWidth * 1.7) / model.width;
+                const scaleY = (innerHeight * 1.7) / model.height;
+                model.scale.set(Math.min(scaleX, scaleY));
+                model.x = (innerWidth - model.width * model.scale.x) / 4;
+                model.y = (innerHeight - model.height * model.scale.y * 2);
+            };
+
+            // 初始调整
+            resizeModel();
+
+            // 窗口大小变化时重新调整
+            window.addEventListener('resize', resizeModel);
+        } catch (error) {
+            console.error('加载 Live2D 模型失败:', error);
+            alert('加载 Live2D 模型失败，请检查模型路径。');
+        }
+    })();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+

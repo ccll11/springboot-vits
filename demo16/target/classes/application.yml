@@ -1,0 +1,21 @@
+#spring.application.name=demo16
+#config_spring: http://localhost:8080/
+#config_flask: http://localhost:5000/
+
+Config:
+  config_spring: http://localhost:8080
+  config_flask : http://127.0.0.1:5000
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3308/vits?useUnicode=true&characterEncoding=utf8&autoReconnect=true&useSSL=false
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 123456
+  devtools:
+    restart:
+      enabled: true
+      additional-paths: resources/static
+
+mybatis:
+  mapper-locations: classpath:mapper/*Dao.xml
