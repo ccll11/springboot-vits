@@ -1,5 +1,9 @@
 # springboot-vits
 基于SpringBoot构建微服务后端，与Python Flask智能层通过RESTful API深度集成，实现ChatGPT对话引擎与VITS语音模型的跨语言交互，采用Base64流媒体编码传输优化音频处理链路，通过Thymeleaf服务端渲染构建低延迟交互前端，前端人物使用live2d渲染。
+
+页面设计流程
+![image](https://github.com/user-attachments/assets/4f5e5b3a-d810-470b-a663-b29b8cc84886)
+
 登录界面
 ![image](https://github.com/user-attachments/assets/449d15ac-221d-4b2f-9809-fffe4d5c41ec)
 
